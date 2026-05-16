@@ -1,0 +1,3 @@
+# Pipeline has zero runtime deps for Phase 1.
+# Standard library only (json, gzip, sqlite3, unicodedata, urllib).
+# Dev-only tools (pytest, ruff) can be added later if needed.
