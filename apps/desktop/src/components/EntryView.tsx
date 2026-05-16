@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { Conjugations } from "@/components/Conjugations";
+import { NotesSection } from "@/components/NotesSection";
+import { TagsRow } from "@/components/TagsRow";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { Entry } from "@/lib/types";
@@ -66,6 +68,9 @@ export function EntryView({ entry, packId, matchedForm, attribution }: Props) {
         </p>
       ) : null}
 
+      {/* Tags */}
+      <TagsRow packId={packId} entryId={entry.id} />
+
       {/* Senses */}
       <ol className="mt-6">
         {entry.senses.map((s) => (
@@ -104,6 +109,9 @@ export function EntryView({ entry, packId, matchedForm, attribution }: Props) {
           </li>
         ))}
       </ol>
+
+      {/* User notes */}
+      <NotesSection packId={packId} entryId={entry.id} />
 
       {/* Conjugations (verbs only) */}
       {entry.pos === "verb" ? (

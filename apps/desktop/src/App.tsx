@@ -19,8 +19,9 @@ import { ResultList } from "@/components/ResultList";
 import { EntryView } from "@/components/EntryView";
 import { EmptyState } from "@/components/EmptyState";
 import { Sidebar } from "@/components/Sidebar";
-import { SettingsPanel } from "@/components/SettingsPanel";
+import { SettingsView } from "@/components/SettingsView";
 import { LangPopover } from "@/components/LangPopover";
+import { OnboardingFlow } from "@/components/OnboardingFlow";
 
 import { useDebounced } from "@/hooks/useDebounced";
 import { useTheme } from "@/hooks/useTheme";
@@ -28,6 +29,7 @@ import { useFontScale } from "@/hooks/useFontScale";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { useHistory } from "@/hooks/useHistory";
 import { useDirection } from "@/hooks/useDirection";
+import { useOnboarding } from "@/hooks/useOnboarding";
 
 import { api } from "@/lib/api";
 import {
@@ -47,6 +49,8 @@ export default function App() {
   const { theme, toggleTheme, setTheme } = useTheme();
   const { scale, setScale } = useFontScale();
   const { direction, setDirection } = useDirection();
+  const { onboarded, finish: finishOnboarding, reset: resetOnboarding } =
+    useOnboarding();
 
   const [availablePacks, setAvailablePacks] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -262,6 +266,64 @@ export default function App() {
   const isSearching = query.trim().length > 0;
   const currentAttribution = attributionByPack[packId] ?? null;
 
+  // First-run experience: a full-screen onboarding flow that ends by
+  // landing the user on a featured entry (which becomes their entry).
+  if (!onboarded) {
+    return (
+      <OnboardingFlow
+        availablePacks={availablePacks}
+        initialDirection={direction}
+        onSetDirection={setDirection}
+        initialTheme={theme}
+        onSetTheme={setTheme}
+        onFinish={async (firstEntry) => {
+          finishOnboarding();
+          if (firstEntry) {
+            setEntry(firstEntry);
+            setEntryPackId(packId);
+            setMatchedForm(null);
+            history.push({
+              packId,
+              entryId: firstEntry.id,
+              matchedForm: null,
+            });
+            try {
+              await api.addRecent(
+                packId,
+                firstEntry.id,
+                firstEntry.headword,
+                firstEntry.pos,
+              );
+              setSidebarTick((n) => n + 1);
+            } catch {
+              /* ignore */
+            }
+          }
+        }}
+      />
+    );
+  }
+
+  // Settings is now a full-page route. We render it INSTEAD of the main
+  // shell when open so it gets the whole window.
+  if (settingsOpen) {
+    return (
+      <SettingsView
+        onClose={() => setSettingsOpen(false)}
+        theme={theme}
+        setTheme={setTheme}
+        fontScale={scale}
+        setFontScale={setScale}
+        packId={packId}
+        availablePacks={availablePacks}
+        onResetOnboarding={() => {
+          resetOnboarding();
+          setSettingsOpen(false);
+        }}
+      />
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={250}>
       <div className="flex h-screen w-screen overflow-hidden bg-bg text-ink">
@@ -320,15 +382,6 @@ export default function App() {
           </div>
         </main>
 
-        <SettingsPanel
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          theme={theme}
-          setTheme={setTheme}
-          fontScale={scale}
-          setFontScale={setScale}
-          packId={packId}
-        />
       </div>
     </TooltipProvider>
   );

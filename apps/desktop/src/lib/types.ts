@@ -46,6 +46,40 @@ export interface UserEntry {
   timestamp: string;
 }
 
+// The curated tag-color palette. "none" maps to the default (no color).
+export type TagColor =
+  | "none"
+  | "rose"
+  | "amber"
+  | "olive"
+  | "sage"
+  | "teal"
+  | "slate"
+  | "plum";
+
+export const TAG_COLORS: TagColor[] = [
+  "none",
+  "rose",
+  "amber",
+  "olive",
+  "sage",
+  "teal",
+  "slate",
+  "plum",
+];
+
+export interface Tag {
+  name: string;
+  color: string | null;
+  count: number;
+}
+
+export interface Note {
+  id: number;
+  text: string;
+  created_at: string;
+}
+
 export type Theme = "paper" | "ink";
 export type FontScale = "sm" | "md" | "lg";
 

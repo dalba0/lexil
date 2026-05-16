@@ -25,6 +25,9 @@ node_modules/
 dist/
 .vite/
 apps/desktop/src-tauri/target/
+apps/desktop/tsconfig.tsbuildinfo
+apps/desktop/tsconfig.node.tsbuildinfo
+apps/desktop/dist/
 
 # Editors / OS
 .vscode/
@@ -37,5 +40,5 @@ Thumbs.db
 .env.local
 
 # Claude Design handoff bundles (local dev artifacts)
-.design-handoff/
+.design-handoff*/
 .claude/

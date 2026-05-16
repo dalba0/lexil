@@ -75,6 +75,16 @@ fn main() {
             user::is_favorite,
             user::list_favorites,
             user::export_favorites,
+            user::list_tags,
+            user::entry_tags,
+            user::add_entry_tag,
+            user::remove_entry_tag,
+            user::set_tag_color,
+            user::rename_tag,
+            user::delete_tag,
+            user::list_notes,
+            user::add_note,
+            user::delete_note,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

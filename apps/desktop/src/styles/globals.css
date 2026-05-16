@@ -157,3 +157,116 @@ mark.lex-mark {
   line-height: 56px;
   letter-spacing: -0.015em;
 }
+
+/* Tag color palette. Each tag carries data-color="<name>"; --tc is the
+   per-theme color value, then the chip mixes it with the bg for the fill
+   and uses 45% opacity for the border. Both themes have separate oklch
+   values to keep contrast right. */
+[data-theme="paper"] .tag-chip[data-color="rose"],
+[data-theme="paper"] .tag-swatch[data-color="rose"],
+[data-theme="paper"] .tag-dot[data-color="rose"]   { --tc: oklch(55% 0.10 25); }
+[data-theme="paper"] .tag-chip[data-color="amber"],
+[data-theme="paper"] .tag-swatch[data-color="amber"],
+[data-theme="paper"] .tag-dot[data-color="amber"]  { --tc: oklch(58% 0.10 65); }
+[data-theme="paper"] .tag-chip[data-color="olive"],
+[data-theme="paper"] .tag-swatch[data-color="olive"],
+[data-theme="paper"] .tag-dot[data-color="olive"]  { --tc: oklch(54% 0.09 110); }
+[data-theme="paper"] .tag-chip[data-color="sage"],
+[data-theme="paper"] .tag-swatch[data-color="sage"],
+[data-theme="paper"] .tag-dot[data-color="sage"]   { --tc: oklch(54% 0.08 155); }
+[data-theme="paper"] .tag-chip[data-color="teal"],
+[data-theme="paper"] .tag-swatch[data-color="teal"],
+[data-theme="paper"] .tag-dot[data-color="teal"]   { --tc: oklch(52% 0.08 215); }
+[data-theme="paper"] .tag-chip[data-color="slate"],
+[data-theme="paper"] .tag-swatch[data-color="slate"],
+[data-theme="paper"] .tag-dot[data-color="slate"]  { --tc: oklch(50% 0.04 250); }
+[data-theme="paper"] .tag-chip[data-color="plum"],
+[data-theme="paper"] .tag-swatch[data-color="plum"],
+[data-theme="paper"] .tag-dot[data-color="plum"]   { --tc: oklch(50% 0.09 320); }
+
+[data-theme="ink"] .tag-chip[data-color="rose"],
+[data-theme="ink"] .tag-swatch[data-color="rose"],
+[data-theme="ink"] .tag-dot[data-color="rose"]   { --tc: oklch(78% 0.09 25); }
+[data-theme="ink"] .tag-chip[data-color="amber"],
+[data-theme="ink"] .tag-swatch[data-color="amber"],
+[data-theme="ink"] .tag-dot[data-color="amber"]  { --tc: oklch(80% 0.09 65); }
+[data-theme="ink"] .tag-chip[data-color="olive"],
+[data-theme="ink"] .tag-swatch[data-color="olive"],
+[data-theme="ink"] .tag-dot[data-color="olive"]  { --tc: oklch(78% 0.08 110); }
+[data-theme="ink"] .tag-chip[data-color="sage"],
+[data-theme="ink"] .tag-swatch[data-color="sage"],
+[data-theme="ink"] .tag-dot[data-color="sage"]   { --tc: oklch(78% 0.07 155); }
+[data-theme="ink"] .tag-chip[data-color="teal"],
+[data-theme="ink"] .tag-swatch[data-color="teal"],
+[data-theme="ink"] .tag-dot[data-color="teal"]   { --tc: oklch(76% 0.07 215); }
+[data-theme="ink"] .tag-chip[data-color="slate"],
+[data-theme="ink"] .tag-swatch[data-color="slate"],
+[data-theme="ink"] .tag-dot[data-color="slate"]  { --tc: oklch(72% 0.03 250); }
+[data-theme="ink"] .tag-chip[data-color="plum"],
+[data-theme="ink"] .tag-swatch[data-color="plum"],
+[data-theme="ink"] .tag-dot[data-color="plum"]   { --tc: oklch(72% 0.08 320); }
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 8px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--surface);
+  letter-spacing: 0.01em;
+}
+.tag-chip[data-color]:not([data-color="none"]) {
+  color: var(--tc);
+  border-color: color-mix(in oklch, var(--tc) 45%, transparent);
+  background: color-mix(in oklch, var(--tc) 14%, var(--bg));
+}
+.tag-chip .tag-x {
+  color: var(--faint);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.tag-chip:hover .tag-x { color: var(--muted); }
+.tag-chip[data-color]:not([data-color="none"]) .tag-x {
+  color: color-mix(in oklch, var(--tc) 55%, transparent);
+}
+.tag-chip[data-color]:not([data-color="none"]):hover .tag-x {
+  color: var(--tc);
+}
+
+.tag-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--tc, var(--border));
+  cursor: pointer;
+  border: 1px solid color-mix(in oklch, var(--tc) 60%, transparent);
+}
+.tag-swatch[data-color="none"] {
+  background: var(--bg);
+  border: 1px dashed var(--faint);
+}
+.tag-swatch.selected {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.tag-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--tc, var(--border));
+  vertical-align: middle;
+  border: 1px solid color-mix(in oklch, var(--tc) 50%, transparent);
+}
+.tag-dot[data-color="none"] {
+  background: var(--bg);
+  border: 1px dashed var(--faint);
+}

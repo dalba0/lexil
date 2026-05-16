@@ -1,6 +1,6 @@
 [package]
 name = "lexil-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lexil — offline dictionary for language learners"
 authors = ["Lexil"]
 edition = "2021"

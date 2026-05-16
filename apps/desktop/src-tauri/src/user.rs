@@ -37,6 +37,8 @@ fn migrate(con: &Connection) -> AppResult<()> {
     let favs_has_pack = column_exists(con, "favorites", "pack_id")?;
     let recents_exists = table_exists(con, "recents")?;
     let favs_exists = table_exists(con, "favorites")?;
+    let tags_exists = table_exists(con, "tags")?;
+    let notes_exists = table_exists(con, "notes")?;
 
     // If a table is missing entirely OR already on the new schema, we don't
     // need to migrate it. Only rename + copy when the legacy table is present.
@@ -104,6 +106,43 @@ fn migrate(con: &Connection) -> AppResult<()> {
                  PRIMARY KEY (pack_id, entry_id)
              );
              CREATE INDEX idx_favorites_added ON favorites(added_at DESC);",
+        );
+    }
+
+    // Tags: per-pack named tags with an optional color from the curated
+    // palette. entry_tags is the many-to-many mapping. No migration needed
+    // — these tables are new in v0.2.
+    if !tags_exists {
+        sql.push_str(
+            "CREATE TABLE tags (
+                 pack_id     TEXT NOT NULL,
+                 name        TEXT NOT NULL,
+                 color       TEXT,
+                 created_at  TEXT NOT NULL,
+                 PRIMARY KEY (pack_id, name)
+             );
+             CREATE TABLE entry_tags (
+                 pack_id   TEXT NOT NULL,
+                 entry_id  INTEGER NOT NULL,
+                 tag_name  TEXT NOT NULL,
+                 attached_at TEXT NOT NULL,
+                 PRIMARY KEY (pack_id, entry_id, tag_name)
+             );
+             CREATE INDEX idx_entry_tags_lookup ON entry_tags(pack_id, entry_id);",
+        );
+    }
+
+    // Notes: each entry can have N notes, ordered by created_at.
+    if !notes_exists {
+        sql.push_str(
+            "CREATE TABLE notes (
+                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                 pack_id     TEXT NOT NULL,
+                 entry_id    INTEGER NOT NULL,
+                 text        TEXT NOT NULL,
+                 created_at  TEXT NOT NULL
+             );
+             CREATE INDEX idx_notes_entry ON notes(pack_id, entry_id, created_at DESC);",
         );
     }
 
@@ -352,6 +391,258 @@ pub fn export_favorites(
     let bytes = out.as_bytes();
     std::fs::write(&path, bytes)?;
     Ok(bytes.len())
+}
+
+// -----------------------------------------------------------------
+// Tags
+// -----------------------------------------------------------------
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct Tag {
+    pub name: String,
+    pub color: Option<String>,
+    pub count: i64,
+}
+
+/// All tags defined for a pack, with how many entries each one is
+/// attached to. Sorted alphabetically.
+#[tauri::command]
+pub fn list_tags(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+) -> AppResult<Vec<Tag>> {
+    let con = lock(&state)?;
+    let mut stmt = con.prepare(
+        "SELECT t.name, t.color,
+                (SELECT COUNT(*) FROM entry_tags et
+                  WHERE et.pack_id = t.pack_id AND et.tag_name = t.name) AS count
+           FROM tags t
+          WHERE t.pack_id = ?
+          ORDER BY t.name COLLATE NOCASE",
+    )?;
+    let rows = stmt
+        .query_map(params![pack_id], |row| {
+            Ok(Tag {
+                name: row.get(0)?,
+                color: row.get(1)?,
+                count: row.get(2)?,
+            })
+        })?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+/// Tags attached to a specific entry (in alphabetical order).
+#[tauri::command]
+pub fn entry_tags(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    entry_id: i64,
+) -> AppResult<Vec<Tag>> {
+    let con = lock(&state)?;
+    let mut stmt = con.prepare(
+        "SELECT t.name, t.color, 0
+           FROM entry_tags et
+           JOIN tags t ON t.pack_id = et.pack_id AND t.name = et.tag_name
+          WHERE et.pack_id = ? AND et.entry_id = ?
+          ORDER BY t.name COLLATE NOCASE",
+    )?;
+    let rows = stmt
+        .query_map(params![pack_id, entry_id], |row| {
+            Ok(Tag {
+                name: row.get(0)?,
+                color: row.get(1)?,
+                count: row.get(2)?,
+            })
+        })?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+/// Attach an existing or new tag to an entry. Creates the tag in the
+/// tags table on first use (with the supplied color).
+#[tauri::command]
+pub fn add_entry_tag(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    entry_id: i64,
+    name: String,
+    color: Option<String>,
+) -> AppResult<()> {
+    let con = lock(&state)?;
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::Invalid("tag name is empty".into()));
+    }
+    let now = now_iso();
+    con.execute(
+        "INSERT INTO tags (pack_id, name, color, created_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(pack_id, name) DO UPDATE SET color = COALESCE(excluded.color, tags.color)",
+        params![pack_id, name, color, now],
+    )?;
+    con.execute(
+        "INSERT OR IGNORE INTO entry_tags (pack_id, entry_id, tag_name, attached_at)
+         VALUES (?, ?, ?, ?)",
+        params![pack_id, entry_id, name, now],
+    )?;
+    Ok(())
+}
+
+/// Detach a tag from one entry. The tag itself remains so its color
+/// sticks if you re-attach it later.
+#[tauri::command]
+pub fn remove_entry_tag(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    entry_id: i64,
+    name: String,
+) -> AppResult<()> {
+    let con = lock(&state)?;
+    con.execute(
+        "DELETE FROM entry_tags WHERE pack_id = ? AND entry_id = ? AND tag_name = ?",
+        params![pack_id, entry_id, name],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_tag_color(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    name: String,
+    color: Option<String>,
+) -> AppResult<()> {
+    lock(&state)?.execute(
+        "UPDATE tags SET color = ? WHERE pack_id = ? AND name = ?",
+        params![color, pack_id, name],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn rename_tag(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    old_name: String,
+    new_name: String,
+) -> AppResult<()> {
+    let con = lock(&state)?;
+    let new_name = new_name.trim().to_string();
+    if new_name.is_empty() {
+        return Err(AppError::Invalid("new tag name is empty".into()));
+    }
+    con.execute_batch("BEGIN;")?;
+    let result: AppResult<()> = (|| {
+        con.execute(
+            "UPDATE tags SET name = ? WHERE pack_id = ? AND name = ?",
+            params![new_name, pack_id, old_name],
+        )?;
+        con.execute(
+            "UPDATE entry_tags SET tag_name = ? WHERE pack_id = ? AND tag_name = ?",
+            params![new_name, pack_id, old_name],
+        )?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = con.execute_batch("ROLLBACK;");
+    } else {
+        con.execute_batch("COMMIT;")?;
+    }
+    result
+}
+
+#[tauri::command]
+pub fn delete_tag(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    name: String,
+) -> AppResult<()> {
+    let con = lock(&state)?;
+    con.execute_batch("BEGIN;")?;
+    let result: AppResult<()> = (|| {
+        con.execute(
+            "DELETE FROM entry_tags WHERE pack_id = ? AND tag_name = ?",
+            params![pack_id, name],
+        )?;
+        con.execute(
+            "DELETE FROM tags WHERE pack_id = ? AND name = ?",
+            params![pack_id, name],
+        )?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = con.execute_batch("ROLLBACK;");
+    } else {
+        con.execute_batch("COMMIT;")?;
+    }
+    result
+}
+
+// -----------------------------------------------------------------
+// Notes
+// -----------------------------------------------------------------
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct Note {
+    pub id: i64,
+    pub text: String,
+    pub created_at: String,
+}
+
+#[tauri::command]
+pub fn list_notes(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    entry_id: i64,
+) -> AppResult<Vec<Note>> {
+    let con = lock(&state)?;
+    let mut stmt = con.prepare(
+        "SELECT id, text, created_at
+           FROM notes
+          WHERE pack_id = ? AND entry_id = ?
+          ORDER BY created_at DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![pack_id, entry_id], |row| {
+            Ok(Note {
+                id: row.get(0)?,
+                text: row.get(1)?,
+                created_at: row.get(2)?,
+            })
+        })?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn add_note(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    entry_id: i64,
+    text: String,
+) -> AppResult<i64> {
+    let con = lock(&state)?;
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Invalid("note text is empty".into()));
+    }
+    con.execute(
+        "INSERT INTO notes (pack_id, entry_id, text, created_at) VALUES (?, ?, ?, ?)",
+        params![pack_id, entry_id, trimmed, now_iso()],
+    )?;
+    Ok(con.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn delete_note(
+    state: tauri::State<'_, UserState>,
+    id: i64,
+) -> AppResult<()> {
+    lock(&state)?.execute("DELETE FROM notes WHERE id = ?", params![id])?;
+    Ok(())
 }
 
 fn first_gloss(con: &Connection, entry_id: i64) -> Option<String> {
