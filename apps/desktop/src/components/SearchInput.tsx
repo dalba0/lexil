@@ -1,7 +1,9 @@
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
-interface Props extends React.InputHTMLAttributes<HTMLInputElement> {
+// Omit the built-in HTML `size` attribute (a number) so we can repurpose
+// the name for our own variant prop.
+interface Props extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
   size?: "lg" | "md";
 }
 
