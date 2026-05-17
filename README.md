@@ -1,185 +1,163 @@
 # Lexil
 
-Offline-first dictionary for language learners. Fast, beautiful, no ads, no
-internet. Spanish first; the architecture is language-agnostic so French,
-German, Japanese, etc. can drop in without touching the app code.
+A calm, offline dictionary for language learners. Look up words in Spanish, French, German, or Japanese with full conjugations, examples, and your own tags and notes — no ads, no accounts, no internet required after install.
 
-## Project layout
+**Current version:** v0.2.1 · **Platform:** Windows (macOS / Linux planned)
+**Designed and built by Albab Dewan · 2026**
 
-```
-lexil/
-├── apps/desktop/        Tauri 2 + React + TypeScript shell
-│   ├── src/             React frontend
-│   └── src-tauri/       Rust backend + bundled resources
-├── pipeline/            Python data pipeline (stdlib only)
-│   ├── sources/         per-language parsers
-│   ├── build_pack.py    JSONL → SQLite pack
-│   └── query.py         CLI smoke test for a built pack
-├── packs/               built .db files (gitignored)
-└── docs/                ARCHITECTURE.md, DESIGN.md, ADDING_A_LANGUAGE.md, LICENSES.md
-```
+---
 
-## What's already working
+## Install (5 seconds)
 
-- Pipeline (Python 3.11+, stdlib only): kaikki dump → normalized JSONL → SQLite pack.
-- A `packs/spanish-en.db` built from a 12-entry fixture, copied into
-  `apps/desktop/src-tauri/resources/` so the app boots end-to-end.
-- CLI smoke test (`pipeline/query.py`) prints a card with senses, examples,
-  conjugations, attribution. Inflection fallback works (typing `corro`
-  resolves to `correr`).
+1. Go to **[the latest release](https://github.com/dalba0/lexil/releases/latest)**
+2. Download **`Lexil_0.2.1_x64_en-US.msi`**
+3. Double-click to install. Done.
 
-## Requirements
+On first launch you'll pick which languages to download — Spanish (308 MB), French (129 MB), German (200 MB), and/or Japanese (116 MB). Pick only what you need; you can add or remove packs later in Settings.
 
-To run the desktop app you need (each is a one-time install):
+---
 
-- **Node.js 20+** and **pnpm 9+** — https://nodejs.org and `npm install -g pnpm`
-- **Rust 1.77+** — `rustup` from https://rustup.rs
-- **Platform deps:**
-  - **Windows:** Microsoft C++ Build Tools (or full Visual Studio with the "Desktop development with C++" workload) plus a recent WebView2 runtime (preinstalled on Windows 11). The Rust installer will print a link if MSVC is missing.
-  - **macOS:** Xcode command-line tools (`xcode-select --install`).
-  - **Linux:** `webkit2gtk-4.1`, `libayatana-appindicator3`, `librsvg2`, plus build essentials. See https://v2.tauri.app/start/prerequisites/.
+## What's in it
 
-Python 3.11+ is only needed for the pipeline (not the app).
+### The basics
+- **Real, full dictionaries** — 800k Spanish entries, 187k German, 136k Japanese, 100k+ French. Sourced from Wiktionary (CC-BY-SA).
+- **Bidirectional search** — type in either language and find the matching entries. Inflected forms resolve to lemmas (typing `corro` opens `correr`).
+- **Accent-insensitive** — type `cafe`, find `café`.
+- **Complete conjugations** — every tense × every person, including subjunctive, conditional, imperative, and compound tenses. Japanese forms include te-form, polite, causative, passive, potential, conditional.
 
-## Run the app (development)
+### Your stuff stays yours
+- **Lists** — make custom lists like "Travel words" or "Verbs to drill". Pick an icon and color.
+- **Tags** — colored chips on any entry, filter the whole dictionary by tag.
+- **Notes** — long-form notes per entry, kept between sessions.
+- **Favorites & history** — star words, browse recent sessions grouped by time.
 
-```bash
+### Out of the way when you want it
+- **Two themes** — Paper (warm cream) for reading, Ink (low-light) for night.
+- **Editorial typography** — Source Serif 4 for headwords, Inter for UI, JetBrains Mono for phonetics.
+- **Keyboard-first** — every action has a shortcut (table below).
+
+### Privacy by default
+- No telemetry, no analytics, no accounts.
+- After install, the **only** time the app touches the internet is when you ask it to download a new language pack from GitHub. That's it.
+
+---
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl + K` | Focus the search bar |
+| `Ctrl + D` | Toggle Paper / Ink theme |
+| `Ctrl + S` | Star or unstar the open entry |
+| `Ctrl + [` | History back |
+| `Ctrl + ]` | History forward |
+| `↑` / `↓` | Move through results |
+| `Enter` | Open selected result |
+| `Esc` | Clear the search box |
+
+---
+
+## Available languages
+
+All packs are pivoted through English (no direct ES↔FR yet).
+
+| Language | Direction | Size | Entries |
+|---|---|---|---|
+| Spanish | es ↔ en | 308 MB | 801,006 |
+| French  | fr ↔ en | 129 MB | ~100k |
+| German  | de ↔ en | 200 MB | 186,849 |
+| Japanese | ja ↔ en | 116 MB | 136,344 |
+
+Each pack lives in `%AppData%\Lexil\packs\` after install. Removing a pack from Settings deletes the file and frees the disk.
+
+---
+
+## Build from source
+
+You only need to do this if you want to modify the app or build it yourself. **Most people should just install the `.msi` above.**
+
+### One-time setup
+
+| Tool | Why | Where |
+|---|---|---|
+| Node.js 22+ | Frontend tooling | https://nodejs.org |
+| pnpm 11+ | Package manager | `npm install -g pnpm` |
+| Rust 1.77+ | Tauri backend | https://rustup.rs |
+| MSVC Build Tools | Windows linker | Comes with Visual Studio 2022 "Desktop development with C++" workload |
+| Python 3.11+ | Pipeline only (optional) | https://python.org |
+
+### Run in development
+
+```powershell
 cd apps/desktop
 pnpm install
 pnpm tauri:dev
 ```
 
-The first launch compiles the Rust backend — expect 1–3 minutes. After that
-HMR is fast.
+First launch compiles Rust — expect 1-3 minutes. After that it's instant HMR.
 
-You should see the **Lexil** window open with an empty search bar. Try:
+### Build a release installer
 
-| Type | Expect |
-|---|---|
-| `cor` | A list with `correr` at the top |
-| `correr` | Verb card with three senses, conjugation grid, attribution footer |
-| `corro` | Same `correr` card, with a "form of correr: corro" badge |
-| `banco` | Two separate cards (bench / bank) |
-| `cafe` (no accent) | `café` card |
-| `casa`, `perro`, `archivo`, `joder`, `ser`, `hablar`, `bonito`, `grande` | All present in the fixture pack |
-
-## Test it
-
-### Pipeline (works today, no toolchain needed)
-
-```bash
-# Smoke-test the built pack
-python pipeline/query.py packs/spanish-en.db correr
-python pipeline/query.py packs/spanish-en.db corro     # inflection fallback
-python pipeline/query.py packs/spanish-en.db banco     # multi-etymology
-python pipeline/query.py packs/spanish-en.db cafe      # accent-insensitive
-
-# Re-run the parser on the fixture
-python pipeline/sources/kaikki_spanish.py \
-    pipeline/tests/fixtures/kaikki_sample.jsonl \
-    --output pipeline/build/spanish.normalized.jsonl \
-    --preview 5
-
-# Rebuild the pack
-python pipeline/build_pack.py \
-    --input pipeline/build/spanish.normalized.jsonl \
-    --output packs/spanish-en.db \
-    --language es \
-    --version 0.1.0-fixture
-```
-
-### App keyboard shortcuts (once running)
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl/Cmd + K` | Focus search |
-| `Ctrl/Cmd + D` | Toggle Paper/Ink theme |
-| `Ctrl/Cmd + S` | Star/unstar the open entry |
-| `Ctrl/Cmd + [` / `]` | History back / forward |
-| `↑` / `↓` | Move through results |
-| `Enter` | Open selected result |
-| `Esc` | Clear search |
-
-### Features to check
-
-- **Search input** with serif font and accent-colored caret. Bottom hairline border.
-- **Result list** appears as you type (60 ms debounce). Each row shows headword, POS, and a one-line preview.
-- **Detail view** — headword in 48 px Source Serif, IPA in JetBrains Mono, POS / gender chips, numbered senses with indented examples, conjugation grid for verbs (present + preterite open by default, others collapsed), source attribution in the footer.
-- **Sidebar** — Recent (auto-populates as you open entries, capped at 50) and Favorites (star button on each detail page).
-- **Settings** (gear icon top right) — theme toggle, font size selector, About text with pack version + attribution.
-- **Export favorites** — Download icon on the Favorites section opens a Save dialog (CSV or Anki-compatible TSV).
-- **Themes** — toggle with `Cmd/Ctrl + D` or via Settings. The accent color and highlight swap, not just light/dark.
-
-## Build a real Spanish pack (not the 12-entry fixture)
-
-The bundled pack is a tiny hand-authored fixture so the app boots. For a
-real working dictionary, fetch the kaikki dump and rebuild:
-
-```bash
-# Download (~400 MB; cached under pipeline/data/)
-python pipeline/sources/fetch_kaikki.py
-
-# Parse (streams, doesn't load into RAM)
-python pipeline/sources/kaikki_spanish.py \
-    pipeline/data/kaikki-spanish.jsonl \
-    --output pipeline/build/spanish.normalized.jsonl
-
-# Build the pack (also works incrementally with --limit N)
-python pipeline/build_pack.py \
-    --input pipeline/build/spanish.normalized.jsonl \
-    --output packs/spanish-en.db \
-    --language es \
-    --version 0.1.0
-
-# Drop it into the Tauri bundle
-cp packs/spanish-en.db apps/desktop/src-tauri/resources/spanish-en.db
-```
-
-Then `pnpm tauri:dev` again. Expect a real pack to be 200–500 MB depending
-on how much you keep.
-
-## Build a release binary
-
-```bash
+```powershell
 cd apps/desktop
 pnpm tauri:build
 ```
 
-Output lands in `apps/desktop/src-tauri/target/release/bundle/`. The bundle
-contains the dictionary `.db` as a resource — the app does not require
-network access at runtime.
+Output: `apps/desktop/src-tauri/target/release/bundle/msi/Lexil_<version>_x64_en-US.msi`.
 
-The placeholder icons (`apps/desktop/src-tauri/icons/`) are generated by
-`apps/desktop/src-tauri/icons/generate.py`. Replace with real artwork
-before shipping:
+### Rebuild a language pack from kaikki
 
-```bash
-pnpm tauri icon path/to/source.png
+```powershell
+# Fetch the dump (one-time, ~400 MB for Spanish)
+python pipeline/sources/fetch_kaikki.py --url https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.jsonl --output pipeline/data/kaikki-spanish.jsonl
+
+# Parse to normalized JSONL
+python pipeline/sources/kaikki_spanish.py pipeline/data/kaikki-spanish.jsonl
+
+# Build the SQLite pack
+python pipeline/build_pack.py --input pipeline/build/spanish.normalized.jsonl --output packs/spanish-en.db --language es --version 0.1.0
 ```
 
-## Verifying offline behavior
+The same flow works with `kaikki_french.py`, `kaikki_german.py`, `kaikki_japanese.py`. Expect 10-20 min for FTS5 indexes on a real dataset.
 
-After building, kill your network and run the app. Everything must work.
-Search, conjugations, themes, recents, favorites, export — none of them
-touch the network. The only crate with a network surface (`tauri`) is
-configured without HTTP plugins, and there are no analytics / telemetry /
-crash-reporting hooks anywhere.
+---
 
-## Adding another language
+## Project layout
 
-See [docs/ADDING_A_LANGUAGE.md](docs/ADDING_A_LANGUAGE.md). The schema is
-language-agnostic; adding French is a data job, not a code job.
+```
+lexil/
+├── apps/desktop/          Tauri 2 + React + TypeScript application
+│   ├── src/               React frontend (components, hooks, styles)
+│   └── src-tauri/         Rust backend (search, user DB, pack manager)
+├── pipeline/              Python data pipeline (stdlib only)
+│   ├── sources/           Per-language Wiktionary parsers
+│   └── build_pack.py      JSONL → SQLite FTS5 pack
+├── packs/                 Manifest + built .db files (gitignored)
+│   └── manifest.json      What the app fetches to discover packs
+├── docs/                  Architecture, design, contribution guides
+└── .github/workflows/     CI release builds
+```
 
-## Data licensing
+---
 
-The Spanish data comes from [kaikki.org](https://kaikki.org/)'s extraction
-of English Wiktionary. Licensed under CC-BY-SA 4.0. Attribution is
-rendered in the app's About dialog (gear → About) and lives in
-[docs/LICENSES.md](docs/LICENSES.md).
+## Documentation
 
-## Project docs
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the Rust backend, React frontend, and Python pipeline fit together
+- **[DESIGN.md](docs/DESIGN.md)** — design system: colors, type scale, spacing, motion
+- **[ADDING_A_LANGUAGE.md](docs/ADDING_A_LANGUAGE.md)** — recipe for shipping a new language pack
+- **[LICENSES.md](docs/LICENSES.md)** — attribution for the dictionary data
+- **[CHANGELOG.md](CHANGELOG.md)** — what changed in each release
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the two halves fit together
-- [docs/DESIGN.md](docs/DESIGN.md) — design system, tokens, type scale, motion rules
-- [docs/ADDING_A_LANGUAGE.md](docs/ADDING_A_LANGUAGE.md) — recipe for a new pack
-- [docs/LICENSES.md](docs/LICENSES.md) — attribution and source licensing
+---
+
+## Licensing
+
+The **dictionary data** in each pack is adapted from English Wiktionary contributors via [kaikki.org](https://kaikki.org/), licensed [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Attribution appears in the app's Settings → About screen.
+
+The **application code** is the project author's work; license TBD.
+
+---
+
+## Credits
+
+Designed and built by **Albab Dewan** · 2026. Built with [Tauri](https://tauri.app/), [React](https://react.dev/), [SQLite FTS5](https://www.sqlite.org/fts5.html), [Tailwind](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/), [Lucide](https://lucide.dev/), and dictionary data from [kaikki.org](https://kaikki.org/).
