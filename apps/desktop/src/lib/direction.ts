@@ -41,6 +41,27 @@ export function packIdForDirection(d: SearchDirection): string {
   }
 }
 
+/**
+ * The source (non-English) language a pack contains entries for.
+ * Every pack is en-paired, so the source language is the other side
+ * of the pair. Used to pick rendering strategies that depend on the
+ * entry's native language (e.g., Conjugations layout).
+ */
+export function sourceLangForPack(packId: string): Lang {
+  switch (packId) {
+    case "spanish-en":
+      return "es";
+    case "french-en":
+      return "fr";
+    case "german-en":
+      return "de";
+    case "japanese-en":
+      return "ja";
+    default:
+      return "es";
+  }
+}
+
 /** True when the direction is target→source (English on the input side). */
 export function isReverse(d: SearchDirection): boolean {
   return d.startsWith("en-");

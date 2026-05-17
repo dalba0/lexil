@@ -5,6 +5,7 @@ import { Conjugations } from "@/components/Conjugations";
 import { NotesSection } from "@/components/NotesSection";
 import { TagsRow } from "@/components/TagsRow";
 import { api } from "@/lib/api";
+import { sourceLangForPack } from "@/lib/direction";
 import { cn } from "@/lib/utils";
 import type { Entry } from "@/lib/types";
 
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function EntryView({ entry, packId, matchedForm, attribution }: Props) {
+  const lang = sourceLangForPack(packId);
   const [favorite, setFavorite] = useState(false);
 
   useEffect(() => {
@@ -119,7 +121,11 @@ export function EntryView({ entry, packId, matchedForm, attribution }: Props) {
 
       {/* Conjugations (verbs only) */}
       {entry.pos === "verb" ? (
-        <Conjugations inflections={entry.inflections} />
+        <Conjugations
+          inflections={entry.inflections}
+          lang={lang}
+          headword={entry.headword}
+        />
       ) : null}
 
       {/* Source footer */}
