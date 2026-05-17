@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "updated_at": "2026-05-17T00:00:00Z",
+  "updated_at": "2026-05-17T02:45:00Z",
   "packs": [
     {
       "id": "spanish-en",
@@ -27,6 +27,32 @@
       "sha256": "2E2B37BA12170BBCEE6AFDA971710B57C222E4BF106A3E6EBDBE97FB98C97562",
       "license": "CC-BY-SA-4.0",
       "attribution": "French dictionary data adapted from English Wiktionary contributors, via kaikki.org. Licensed under CC-BY-SA 4.0."
+    },
+    {
+      "id": "german-en",
+      "name": "German",
+      "source": "de",
+      "target": "en",
+      "version": "0.1.0",
+      "size_bytes": 209235968,
+      "entries": 186849,
+      "download_url": "https://github.com/dalba0/lexil/releases/download/packs-v1/german-en.db",
+      "sha256": "8F64EE2DA2FB2E4786170EC3E76A72B31CBABA867047678C4F3FF0A0DAB60846",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "German dictionary data adapted from English Wiktionary contributors, via kaikki.org. Licensed under CC-BY-SA 4.0."
+    },
+    {
+      "id": "japanese-en",
+      "name": "Japanese",
+      "source": "ja",
+      "target": "en",
+      "version": "0.1.0",
+      "size_bytes": 121278464,
+      "entries": 136344,
+      "download_url": "https://github.com/dalba0/lexil/releases/download/packs-v1/japanese-en.db",
+      "sha256": "CF0CF3BBBE2C75D6F8A774B89D65B4116407A79CA41BED2EE2CCB53042BBF4DF",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Japanese dictionary data adapted from English Wiktionary contributors, via kaikki.org. Licensed under CC-BY-SA 4.0."
     }
   ]
 }
