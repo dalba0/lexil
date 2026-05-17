@@ -2,8 +2,14 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { PackManager } from "@/components/PackManager";
 import { packIdForDirection } from "@/lib/direction";
-import type { Entry, SearchDirection, Theme } from "@/lib/types";
+import type {
+  Entry,
+  InstalledPack,
+  SearchDirection,
+  Theme,
+} from "@/lib/types";
 
 interface Props {
   availablePacks: string[];
@@ -11,6 +17,8 @@ interface Props {
   onSetDirection: (d: SearchDirection) => void;
   initialTheme: Theme;
   onSetTheme: (t: Theme) => void;
+  /** Fires whenever the set of installed packs changes (download done). */
+  onInstalledPacksChanged: (ids: string[]) => void;
   onFinish: (entry: Entry | null) => void;
 }
 
@@ -35,9 +43,11 @@ export function OnboardingFlow({
   onSetDirection,
   initialTheme,
   onSetTheme,
+  onInstalledPacksChanged,
   onFinish,
 }: Props) {
   const [step, setStep] = useState<Step>("welcome");
+  const [installedIds, setInstalledIds] = useState<string[]>(availablePacks);
   const [chosenPack, setChosenPack] = useState<string>(
     packIdForDirection(initialDirection),
   );
@@ -45,19 +55,24 @@ export function OnboardingFlow({
   const [firstEntry, setFirstEntry] = useState<Entry | null>(null);
 
   // When entering step 4, ensure direction matches the chosen pack, then
-  // fetch a featured word from that pack.
+  // fetch a featured word from that pack. If the user-picked pack isn't
+  // actually installed (e.g. they backed out), fall back to whichever
+  // one is.
   useEffect(() => {
     if (step !== "first") return;
-    const dir = PACK_LABELS[chosenPack]?.dir ?? initialDirection;
+    const effective = installedIds.includes(chosenPack)
+      ? chosenPack
+      : installedIds[0] ?? chosenPack;
+    const dir = PACK_LABELS[effective]?.dir ?? initialDirection;
     onSetDirection(dir);
     let cancelled = false;
-    fetchFirstWord(chosenPack).then((e) => {
+    fetchFirstWord(effective).then((e) => {
       if (!cancelled) setFirstEntry(e);
     });
     return () => {
       cancelled = true;
     };
-  }, [step, chosenPack, initialDirection, onSetDirection]);
+  }, [step, chosenPack, installedIds, initialDirection, onSetDirection]);
 
   // Always set the theme immediately when the user picks one — the
   // background of the onboarding shell follows it.
@@ -66,8 +81,11 @@ export function OnboardingFlow({
   }, [chosenTheme, onSetTheme]);
 
   const idx = STEP_ORDER.indexOf(step);
+  // Pack step requires at least one installed pack before Continue is enabled.
+  const nextDisabled = step === "pack" && installedIds.length === 0;
 
   const next = () => {
+    if (nextDisabled) return;
     if (step === "first") {
       onFinish(firstEntry);
       return;
@@ -78,6 +96,17 @@ export function OnboardingFlow({
   const back = () => {
     if (idx === 0) return;
     setStep(STEP_ORDER[idx - 1]);
+  };
+
+  const handleInstalledChange = (installed: InstalledPack[]) => {
+    const ids = installed.map((p) => p.id);
+    setInstalledIds(ids);
+    onInstalledPacksChanged(ids);
+    // Auto-select the first installed pack if the user's previous pick
+    // isn't installed anymore.
+    if (!ids.includes(chosenPack) && ids.length > 0) {
+      setChosenPack(ids[0]);
+    }
   };
 
   return (
@@ -98,9 +127,10 @@ export function OnboardingFlow({
           <Welcome />
         ) : step === "pack" ? (
           <PackPicker
-            availablePacks={availablePacks}
+            installedIds={installedIds}
             chosen={chosenPack}
             onChoose={setChosenPack}
+            onInstalledChange={handleInstalledChange}
           />
         ) : step === "theme" ? (
           <ThemePicker chosen={chosenTheme} onChoose={setChosenTheme} />
@@ -124,7 +154,13 @@ export function OnboardingFlow({
         )}
         <button
           onClick={next}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-accent hover:opacity-80 transition-opacity duration-fast"
+          disabled={nextDisabled}
+          className={cn(
+            "inline-flex items-center gap-2 text-[13px] font-medium transition-opacity duration-fast",
+            nextDisabled
+              ? "cursor-not-allowed text-faint"
+              : "text-accent hover:opacity-80",
+          )}
         >
           {step === "welcome"
             ? "Get started"
@@ -177,14 +213,19 @@ function Welcome() {
 }
 
 function PackPicker({
-  availablePacks,
+  installedIds,
   chosen,
   onChoose,
+  onInstalledChange,
 }: {
-  availablePacks: string[];
+  installedIds: string[];
   chosen: string;
   onChoose: (id: string) => void;
+  onInstalledChange: (installed: InstalledPack[]) => void;
 }) {
+  // `chosen` is just the visual highlight — the actual control is the
+  // PackManager's install button. Once a pack is installed it becomes
+  // selectable; tapping the row sets it as the starting pack.
   return (
     <div className="mx-auto w-full max-w-[560px] flex-1 px-8 py-16">
       <div className="caption mb-4 text-faint">Step one</div>
@@ -192,51 +233,43 @@ function PackPicker({
         Choose a dictionary.
       </h2>
       <p className="mt-4 text-body leading-6 text-muted">
-        Packs work fully offline. You can switch between them anytime from
-        the language pill in the top bar.
+        Pick at least one language to install. Packs work fully offline once
+        downloaded — you can add or remove them anytime from Settings.
       </p>
 
-      <div className="mt-8 flex flex-col">
-        {Object.entries(PACK_LABELS).map(([id, info]) => {
-          const installed = availablePacks.includes(id);
-          const selected = chosen === id;
-          return (
-            <button
-              key={id}
-              disabled={!installed}
-              onClick={() => onChoose(id)}
-              className={cn(
-                "relative flex items-center justify-between border-t border-border py-4 text-left transition-colors duration-fast last:border-b",
-                installed
-                  ? selected
-                    ? "before:absolute before:left-[-16px] before:top-3.5 before:bottom-3.5 before:w-0.5 before:bg-accent"
-                    : "hover:bg-border/20"
-                  : "cursor-not-allowed opacity-50",
-              )}
-            >
-              <div>
-                <div className="font-serif text-[18px] leading-7 tracking-[-0.005em] text-ink">
-                  {info.from} → {info.to}
-                </div>
-                <div className="mt-0.5 text-[12px] tracking-wider text-faint">
-                  {installed ? "Bundled with the app" : "Not installed"}
-                </div>
-              </div>
-              <div
-                className={cn(
-                  "text-[12px] font-medium uppercase tracking-wider",
-                  selected ? "text-ink" : "text-faint",
-                )}
-              >
-                {selected ? "Selected" : installed ? "Choose" : "Coming soon"}
-              </div>
-            </button>
-          );
-        })}
+      <div className="mt-8">
+        <PackManager onChange={onInstalledChange} compact />
       </div>
 
-      <div className="mt-4 text-[12px] tracking-wider text-faint">
-        Every pack ships with IPA, conjugation tables, and Wiktionary glosses (CC-BY-SA).
+      {installedIds.length > 1 ? (
+        <div className="mt-6">
+          <div className="caption mb-2 text-faint">Open Lexil in</div>
+          <div className="flex flex-wrap gap-2">
+            {installedIds.map((id) => {
+              const info = PACK_LABELS[id];
+              if (!info) return null;
+              const selected = chosen === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => onChoose(id)}
+                  className={cn(
+                    "rounded-input border px-3 py-1.5 font-serif text-[14px] transition-colors duration-fast",
+                    selected
+                      ? "border-accent text-ink"
+                      : "border-border text-muted hover:text-ink",
+                  )}
+                >
+                  {info.from} → {info.to}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-6 text-[12px] tracking-wider text-faint">
+        All packs from Wiktionary via kaikki.org. CC-BY-SA 4.0.
       </div>
     </div>
   );

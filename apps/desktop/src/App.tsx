@@ -18,6 +18,7 @@ import { SearchInput } from "@/components/SearchInput";
 import { ResultList } from "@/components/ResultList";
 import { EntryView } from "@/components/EntryView";
 import { EmptyState } from "@/components/EmptyState";
+import { EntryListView } from "@/components/EntryListView";
 import { Sidebar } from "@/components/Sidebar";
 import { SettingsView } from "@/components/SettingsView";
 import { LangPopover } from "@/components/LangPopover";
@@ -61,6 +62,8 @@ export default function App() {
   const [entry, setEntry] = useState<Entry | null>(null);
   const [entryPackId, setEntryPackId] = useState<string | null>(null);
   const [matchedForm, setMatchedForm] = useState<string | null>(null);
+  const [openListId, setOpenListId] = useState<number | null>(null);
+  const [openTagName, setOpenTagName] = useState<string | null>(null);
   const [attributionByPack, setAttributionByPack] = useState<
     Record<string, string>
   >({});
@@ -72,29 +75,30 @@ export default function App() {
 
   const packId = packIdForDirection(direction);
 
-  // On mount, ask the backend which packs actually loaded. If the user's
-  // saved direction points at a pack we don't have, fall back to one we do.
+  const refreshAvailablePacks = useCallback(async () => {
+    try {
+      const packs = await api.listPacks();
+      setAvailablePacks(packs);
+      if (packs.length > 0 && !packs.includes(packIdForDirection(direction))) {
+        const candidates: SearchDirection[] = [
+          "es-en",
+          "fr-en",
+          "en-es",
+          "en-fr",
+        ];
+        const fallback =
+          candidates.find((d) => packs.includes(packIdForDirection(d))) ??
+          DEFAULT_DIRECTION;
+        setDirection(fallback);
+      }
+    } catch {
+      setAvailablePacks([]);
+    }
+  }, [direction, setDirection]);
+
+  // On mount, ask the backend which packs actually loaded.
   useEffect(() => {
-    api
-      .listPacks()
-      .then((packs) => {
-        setAvailablePacks(packs);
-        if (!packs.includes(packIdForDirection(direction))) {
-          // Find a working direction. Prefer es-en, then fr-en.
-          const candidates: SearchDirection[] = [
-            "es-en",
-            "fr-en",
-            "en-es",
-            "en-fr",
-          ];
-          const fallback =
-            candidates.find((d) => packs.includes(packIdForDirection(d))) ??
-            DEFAULT_DIRECTION;
-          setDirection(fallback);
-        }
-      })
-      .catch(() => setAvailablePacks([]));
-    // We only want this on mount.
+    refreshAvailablePacks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -152,6 +156,8 @@ export default function App() {
       setEntry(detail);
       setEntryPackId(packId);
       setMatchedForm(r.matched_form);
+      setOpenListId(null);
+      setOpenTagName(null);
       if (pushHistory) {
         history.push({
           packId,
@@ -173,12 +179,34 @@ export default function App() {
       setEntry(detail);
       setEntryPackId(packId);
       setMatchedForm(matched);
+      setOpenListId(null);
+      setOpenTagName(null);
       history.push({ packId, entryId, matchedForm: matched });
       await api.addRecent(packId, entryId, detail.headword, detail.pos);
       setSidebarTick((n) => n + 1);
     },
     [history, packId],
   );
+
+  const openList = useCallback((listId: number) => {
+    setEntry(null);
+    setEntryPackId(null);
+    setMatchedForm(null);
+    setOpenTagName(null);
+    setOpenListId(listId);
+    setQuery("");
+    setResults([]);
+  }, []);
+
+  const openTag = useCallback((name: string) => {
+    setEntry(null);
+    setEntryPackId(null);
+    setMatchedForm(null);
+    setOpenListId(null);
+    setOpenTagName(name);
+    setQuery("");
+    setResults([]);
+  }, []);
 
   const goBack = useCallback(async () => {
     const prev = history.back();
@@ -266,9 +294,11 @@ export default function App() {
   const isSearching = query.trim().length > 0;
   const currentAttribution = attributionByPack[packId] ?? null;
 
-  // First-run experience: a full-screen onboarding flow that ends by
-  // landing the user on a featured entry (which becomes their entry).
-  if (!onboarded) {
+  // First-run OR no-packs-installed experience: a full-screen onboarding
+  // flow that requires the user to download at least one pack before they
+  // can use the app.
+  const noPacksInstalled = availablePacks.length === 0;
+  if (!onboarded || noPacksInstalled) {
     return (
       <OnboardingFlow
         availablePacks={availablePacks}
@@ -276,20 +306,22 @@ export default function App() {
         onSetDirection={setDirection}
         initialTheme={theme}
         onSetTheme={setTheme}
+        onInstalledPacksChanged={(ids) => setAvailablePacks(ids)}
         onFinish={async (firstEntry) => {
           finishOnboarding();
+          await refreshAvailablePacks();
           if (firstEntry) {
             setEntry(firstEntry);
-            setEntryPackId(packId);
+            setEntryPackId(packIdForDirection(direction));
             setMatchedForm(null);
             history.push({
-              packId,
+              packId: packIdForDirection(direction),
               entryId: firstEntry.id,
               matchedForm: null,
             });
             try {
               await api.addRecent(
-                packId,
+                packIdForDirection(direction),
                 firstEntry.id,
                 firstEntry.headword,
                 firstEntry.pos,
@@ -309,13 +341,16 @@ export default function App() {
   if (settingsOpen) {
     return (
       <SettingsView
-        onClose={() => setSettingsOpen(false)}
+        onClose={async () => {
+          setSettingsOpen(false);
+          // Pack list may have changed (install/remove) while in Settings.
+          await refreshAvailablePacks();
+        }}
         theme={theme}
         setTheme={setTheme}
         fontScale={scale}
         setFontScale={setScale}
         packId={packId}
-        availablePacks={availablePacks}
         onResetOnboarding={() => {
           resetOnboarding();
           setSettingsOpen(false);
@@ -331,7 +366,20 @@ export default function App() {
           packId={packId}
           refreshKey={sidebarTick}
           onOpenEntry={(id) => openById(id, null)}
+          onOpenList={openList}
+          onOpenTag={openTag}
+          onGoHome={() => {
+            setEntry(null);
+            setEntryPackId(null);
+            setMatchedForm(null);
+            setOpenListId(null);
+            setOpenTagName(null);
+            setQuery("");
+            setResults([]);
+          }}
           currentEntryId={entryPackId === packId ? entry?.id ?? null : null}
+          currentListId={openListId}
+          currentTagName={openTagName}
         />
 
         <main className="flex min-w-0 flex-1 flex-col">
@@ -368,6 +416,23 @@ export default function App() {
                 onHover={setSelectedIndex}
                 query={query}
                 direction={direction}
+              />
+            ) : openListId !== null ? (
+              <EntryListView
+                kind="list"
+                packId={packId}
+                listId={openListId}
+                onOpenEntry={(id) => openById(id, null)}
+                onClose={() => setOpenListId(null)}
+                onChanged={() => setSidebarTick((n) => n + 1)}
+              />
+            ) : openTagName !== null ? (
+              <EntryListView
+                kind="tag"
+                packId={packId}
+                tagName={openTagName}
+                onOpenEntry={(id) => openById(id, null)}
+                onClose={() => setOpenTagName(null)}
               />
             ) : entry && entryPackId ? (
               <EntryView
@@ -425,7 +490,7 @@ function TopBar({
               <ArrowLeft size={16} strokeWidth={1.5} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Back (⌘ [)</TooltipContent>
+          <TooltipContent>Back (Ctrl + [)</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -439,7 +504,7 @@ function TopBar({
               <ArrowRight size={16} strokeWidth={1.5} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Forward (⌘ ])</TooltipContent>
+          <TooltipContent>Forward (Ctrl + ])</TooltipContent>
         </Tooltip>
       </div>
 
@@ -465,7 +530,7 @@ function TopBar({
               )}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Theme (⌘ D)</TooltipContent>
+          <TooltipContent>Theme (Ctrl + D)</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>

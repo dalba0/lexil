@@ -16,13 +16,15 @@ interface Props {
 
 // All languages the app *might* support. We compute which are actually
 // usable from `availablePacks` at render time, so a language whose pack
-// isn't bundled stays visible but disabled.
-const ALL_LANGS: Lang[] = ["es", "en", "fr"];
+// isn't installed stays visible but greyed out as "coming soon".
+const ALL_LANGS: Lang[] = ["es", "en", "fr", "de", "ja"];
 
 // Map a non-English language to the pack that bridges it to English.
 const PACK_FOR: Record<Exclude<Lang, "en">, string> = {
   es: "spanish-en",
   fr: "french-en",
+  de: "german-en",
+  ja: "japanese-en",
 };
 
 export function LangPopover({ direction, onSetDirection, availablePacks }: Props) {

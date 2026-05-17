@@ -1,6 +1,6 @@
 [package]
 name = "lexil-desktop"
-version = "0.1.1"
+version = "0.2.0"
 description = "Lexil — offline dictionary for language learners"
 authors = ["Lexil"]
 edition = "2021"
@@ -17,6 +17,12 @@ serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 unicode-normalization = "0.1"
 thiserror = "1"
+# On-demand pack downloader. rustls-tls keeps the binary small and avoids
+# pulling in OpenSSL on Windows. blocking client because we stream into a
+# file from a background thread per download (see pack_manager.rs).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking", "stream"] }
+sha2 = "0.10"
+hex = "0.4"
 
 [features]
 default = ["custom-protocol"]

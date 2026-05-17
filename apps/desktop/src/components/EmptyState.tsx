@@ -81,7 +81,7 @@ export function EmptyState({ packId, onOpen }: Props) {
       <div className="absolute bottom-8 left-0 right-0 text-center caption text-faint">
         Type a word, or press{" "}
         <span className="font-mono normal-case tracking-normal text-muted">
-          ⌘K
+          Ctrl + K
         </span>
       </div>
     </div>

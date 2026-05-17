@@ -1,5 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Entry, Note, SearchResult, Tag, UserEntry } from "./types";
+import type {
+  Entry,
+  InstalledPack,
+  ListEntry,
+  Manifest,
+  ManifestPack,
+  Note,
+  SearchResult,
+  Tag,
+  TaggedEntry,
+  UserEntry,
+  UserList,
+} from "./types";
 
 // Single-source wrappers around Tauri invoke calls. Every query takes the
 // pack_id explicitly so the backend stays stateless and the frontend never
@@ -76,4 +88,53 @@ export const api = {
   addNote: (packId: string, entryId: number, text: string) =>
     invoke<number>("add_note", { packId, entryId, text }),
   deleteNote: (id: number) => invoke<void>("delete_note", { id }),
+
+  // Pack management
+  availablePacks: () => invoke<Manifest>("available_packs"),
+  installedPacks: () => invoke<InstalledPack[]>("installed_packs"),
+  downloadPack: (pack: ManifestPack) => invoke<void>("download_pack", { pack }),
+  cancelDownload: (packId: string) =>
+    invoke<void>("cancel_download", { packId }),
+  removePack: (packId: string) => invoke<void>("remove_pack", { packId }),
+  refreshPacks: () => invoke<InstalledPack[]>("refresh_packs"),
+
+  // User-created lists
+  listLists: (packId: string) => invoke<UserList[]>("list_lists", { packId }),
+  createList: (
+    packId: string,
+    name: string,
+    glyph: string | null,
+    color: string | null,
+  ) => invoke<number>("create_list", { packId, name, glyph, color }),
+  renameList: (listId: number, name: string) =>
+    invoke<void>("rename_list", { listId, name }),
+  setListGlyph: (listId: number, glyph: string | null) =>
+    invoke<void>("set_list_glyph", { listId, glyph }),
+  setListColor: (listId: number, color: string | null) =>
+    invoke<void>("set_list_color", { listId, color }),
+  deleteList: (listId: number) => invoke<void>("delete_list", { listId }),
+  listListEntries: (listId: number) =>
+    invoke<ListEntry[]>("list_list_entries", { listId }),
+  addToList: (
+    listId: number,
+    packId: string,
+    entryId: number,
+    headword: string,
+    pos: string | null,
+  ) =>
+    invoke<void>("add_to_list", {
+      listId,
+      packId,
+      entryId,
+      headword,
+      pos,
+    }),
+  removeFromList: (listId: number, entryId: number) =>
+    invoke<void>("remove_from_list", { listId, entryId }),
+  listsForEntry: (packId: string, entryId: number) =>
+    invoke<number[]>("lists_for_entry", { packId, entryId }),
+
+  // Tag-filtered lookup
+  entriesWithTag: (packId: string, name: string) =>
+    invoke<TaggedEntry[]>("entries_with_tag", { packId, name }),
 };

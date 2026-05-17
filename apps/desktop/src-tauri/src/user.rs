@@ -39,6 +39,7 @@ fn migrate(con: &Connection) -> AppResult<()> {
     let favs_exists = table_exists(con, "favorites")?;
     let tags_exists = table_exists(con, "tags")?;
     let notes_exists = table_exists(con, "notes")?;
+    let lists_exists = table_exists(con, "lists")?;
 
     // If a table is missing entirely OR already on the new schema, we don't
     // need to migrate it. Only rename + copy when the legacy table is present.
@@ -143,6 +144,31 @@ fn migrate(con: &Connection) -> AppResult<()> {
                  created_at  TEXT NOT NULL
              );
              CREATE INDEX idx_notes_entry ON notes(pack_id, entry_id, created_at DESC);",
+        );
+    }
+
+    // Lists: user-created collections of entries with a glyph + color.
+    if !lists_exists {
+        sql.push_str(
+            "CREATE TABLE lists (
+                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                 pack_id     TEXT NOT NULL,
+                 name        TEXT NOT NULL,
+                 glyph       TEXT,
+                 color       TEXT,
+                 created_at  TEXT NOT NULL
+             );
+             CREATE INDEX idx_lists_pack ON lists(pack_id);
+             CREATE TABLE list_entries (
+                 list_id     INTEGER NOT NULL,
+                 pack_id     TEXT NOT NULL,
+                 entry_id    INTEGER NOT NULL,
+                 headword    TEXT NOT NULL,
+                 pos         TEXT,
+                 added_at    TEXT NOT NULL,
+                 PRIMARY KEY (list_id, entry_id)
+             );
+             CREATE INDEX idx_list_entries_list ON list_entries(list_id, added_at DESC);",
         );
     }
 
@@ -643,6 +669,267 @@ pub fn delete_note(
 ) -> AppResult<()> {
     lock(&state)?.execute("DELETE FROM notes WHERE id = ?", params![id])?;
     Ok(())
+}
+
+// -----------------------------------------------------------------
+// Lists
+// -----------------------------------------------------------------
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct List {
+    pub id: i64,
+    pub name: String,
+    pub glyph: Option<String>,
+    pub color: Option<String>,
+    pub count: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct ListEntry {
+    pub entry_id: i64,
+    pub headword: String,
+    pub pos: Option<String>,
+    pub added_at: String,
+}
+
+#[tauri::command]
+pub fn list_lists(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+) -> AppResult<Vec<List>> {
+    let con = lock(&state)?;
+    let mut stmt = con.prepare(
+        "SELECT l.id, l.name, l.glyph, l.color, l.created_at,
+                (SELECT COUNT(*) FROM list_entries le WHERE le.list_id = l.id) AS count
+           FROM lists l
+          WHERE l.pack_id = ?
+          ORDER BY l.created_at ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![pack_id], |row| {
+            Ok(List {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                glyph: row.get(2)?,
+                color: row.get(3)?,
+                created_at: row.get(4)?,
+                count: row.get(5)?,
+            })
+        })?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn create_list(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    name: String,
+    glyph: Option<String>,
+    color: Option<String>,
+) -> AppResult<i64> {
+    let con = lock(&state)?;
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::Invalid("list name is empty".into()));
+    }
+    con.execute(
+        "INSERT INTO lists (pack_id, name, glyph, color, created_at) VALUES (?, ?, ?, ?, ?)",
+        params![pack_id, name, glyph, color, now_iso()],
+    )?;
+    Ok(con.last_insert_rowid())
+}
+
+#[tauri::command]
+pub fn rename_list(
+    state: tauri::State<'_, UserState>,
+    list_id: i64,
+    name: String,
+) -> AppResult<()> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(AppError::Invalid("list name is empty".into()));
+    }
+    lock(&state)?.execute(
+        "UPDATE lists SET name = ? WHERE id = ?",
+        params![name, list_id],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_list_glyph(
+    state: tauri::State<'_, UserState>,
+    list_id: i64,
+    glyph: Option<String>,
+) -> AppResult<()> {
+    lock(&state)?.execute(
+        "UPDATE lists SET glyph = ? WHERE id = ?",
+        params![glyph, list_id],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_list_color(
+    state: tauri::State<'_, UserState>,
+    list_id: i64,
+    color: Option<String>,
+) -> AppResult<()> {
+    lock(&state)?.execute(
+        "UPDATE lists SET color = ? WHERE id = ?",
+        params![color, list_id],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_list(
+    state: tauri::State<'_, UserState>,
+    list_id: i64,
+) -> AppResult<()> {
+    let con = lock(&state)?;
+    con.execute_batch("BEGIN;")?;
+    let result: AppResult<()> = (|| {
+        con.execute("DELETE FROM list_entries WHERE list_id = ?", params![list_id])?;
+        con.execute("DELETE FROM lists WHERE id = ?", params![list_id])?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = con.execute_batch("ROLLBACK;");
+    } else {
+        con.execute_batch("COMMIT;")?;
+    }
+    result
+}
+
+#[tauri::command]
+pub fn list_list_entries(
+    state: tauri::State<'_, UserState>,
+    list_id: i64,
+) -> AppResult<Vec<ListEntry>> {
+    let con = lock(&state)?;
+    let mut stmt = con.prepare(
+        "SELECT entry_id, headword, pos, added_at
+           FROM list_entries
+          WHERE list_id = ?
+          ORDER BY added_at DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![list_id], |row| {
+            Ok(ListEntry {
+                entry_id: row.get(0)?,
+                headword: row.get(1)?,
+                pos: row.get(2)?,
+                added_at: row.get(3)?,
+            })
+        })?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn add_to_list(
+    state: tauri::State<'_, UserState>,
+    list_id: i64,
+    pack_id: String,
+    entry_id: i64,
+    headword: String,
+    pos: Option<String>,
+) -> AppResult<()> {
+    lock(&state)?.execute(
+        "INSERT OR REPLACE INTO list_entries (list_id, pack_id, entry_id, headword, pos, added_at)
+         VALUES (?, ?, ?, ?, ?, ?)",
+        params![list_id, pack_id, entry_id, headword, pos, now_iso()],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_from_list(
+    state: tauri::State<'_, UserState>,
+    list_id: i64,
+    entry_id: i64,
+) -> AppResult<()> {
+    lock(&state)?.execute(
+        "DELETE FROM list_entries WHERE list_id = ? AND entry_id = ?",
+        params![list_id, entry_id],
+    )?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn lists_for_entry(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    entry_id: i64,
+) -> AppResult<Vec<i64>> {
+    let con = lock(&state)?;
+    let mut stmt = con.prepare(
+        "SELECT list_id FROM list_entries
+           WHERE pack_id = ? AND entry_id = ?",
+    )?;
+    let ids = stmt
+        .query_map(params![pack_id, entry_id], |row| row.get::<_, i64>(0))?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(ids)
+}
+
+// -----------------------------------------------------------------
+// Tag-filtered entry lookup
+// -----------------------------------------------------------------
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct TaggedEntry {
+    pub entry_id: i64,
+    pub headword: String,
+    pub pos: Option<String>,
+    pub attached_at: String,
+}
+
+#[tauri::command]
+pub fn entries_with_tag(
+    state: tauri::State<'_, UserState>,
+    pack_id: String,
+    name: String,
+) -> AppResult<Vec<TaggedEntry>> {
+    let con = lock(&state)?;
+    // We need headword + pos for each entry; pull from the recents +
+    // favorites + list_entries tables (everywhere we've stored them).
+    // Tags don't carry headword themselves to keep the schema minimal.
+    let mut stmt = con.prepare(
+        "WITH known(entry_id, headword, pos) AS (
+             SELECT entry_id, headword, pos FROM recents WHERE pack_id = ?1
+             UNION
+             SELECT entry_id, headword, pos FROM favorites WHERE pack_id = ?1
+             UNION
+             SELECT entry_id, headword, pos FROM list_entries WHERE pack_id = ?1
+         )
+         SELECT et.entry_id,
+                COALESCE(k.headword, '#' || et.entry_id) AS headword,
+                k.pos,
+                et.attached_at
+           FROM entry_tags et
+           LEFT JOIN known k ON k.entry_id = et.entry_id
+          WHERE et.pack_id = ?1 AND et.tag_name = ?2
+          ORDER BY et.attached_at DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![pack_id, name], |row| {
+            Ok(TaggedEntry {
+                entry_id: row.get(0)?,
+                headword: row.get(1)?,
+                pos: row.get(2)?,
+                attached_at: row.get(3)?,
+            })
+        })?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
 }
 
 fn first_gloss(con: &Connection, entry_id: i64) -> Option<String> {

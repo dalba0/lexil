@@ -3,15 +3,22 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Inflection } from "@/lib/types";
 
-// The seven tenses Lexil surfaces, in display order. Present / Preterite /
+// The tenses Lexil surfaces, in display order. Present / Preterite /
 // Imperfect open by default; the rest collapse.
+//
+// Whether a given tense renders at all depends on the data — Wiktionary's
+// inflection tables vary by verb (a defective verb won't have every
+// tense). Empty tenses are dropped silently rather than padded with
+// placeholders.
 const TENSES = [
-  { label: "Present", key: "pres ind", defaultOpen: true },
-  { label: "Preterite", key: "pret ind", defaultOpen: true },
-  { label: "Imperfect", key: "imperf ind", defaultOpen: true },
-  { label: "Future", key: "fut ind", defaultOpen: false },
+  { label: "Present indicative", key: "pres ind", defaultOpen: true },
+  { label: "Preterite indicative", key: "pret ind", defaultOpen: true },
+  { label: "Imperfect indicative", key: "imperf ind", defaultOpen: true },
+  { label: "Future indicative", key: "fut ind", defaultOpen: false },
   { label: "Conditional", key: "cond", defaultOpen: false },
-  { label: "Subjunctive", key: "pres sub", defaultOpen: false },
+  { label: "Present subjunctive", key: "pres sub", defaultOpen: false },
+  { label: "Imperfect subjunctive", key: "imperf sub", defaultOpen: false },
+  { label: "Future subjunctive", key: "fut sub", defaultOpen: false },
   { label: "Imperative", key: "imp", defaultOpen: false },
 ];
 

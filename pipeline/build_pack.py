@@ -44,6 +44,26 @@ LANGUAGE_DEFAULTS: dict[str, dict[str, str]] = {
             "via kaikki.org. Licensed under CC-BY-SA 4.0."
         ),
     },
+    "de": {
+        "language_name": "German",
+        "target_language": "en",
+        "source_url": "https://kaikki.org/dictionary/German/",
+        "license": "CC-BY-SA-4.0",
+        "attribution": (
+            "German dictionary data adapted from English Wiktionary contributors, "
+            "via kaikki.org. Licensed under CC-BY-SA 4.0."
+        ),
+    },
+    "ja": {
+        "language_name": "Japanese",
+        "target_language": "en",
+        "source_url": "https://kaikki.org/dictionary/Japanese/",
+        "license": "CC-BY-SA-4.0",
+        "attribution": (
+            "Japanese dictionary data adapted from English Wiktionary contributors, "
+            "via kaikki.org. Licensed under CC-BY-SA 4.0."
+        ),
+    },
 }
 
 

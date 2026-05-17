@@ -1,0 +1,32 @@
+{
+  "manifest_version": 1,
+  "updated_at": "2026-05-17T00:00:00Z",
+  "packs": [
+    {
+      "id": "spanish-en",
+      "name": "Spanish",
+      "source": "es",
+      "target": "en",
+      "version": "0.1.0",
+      "size_bytes": 322973696,
+      "entries": 801006,
+      "download_url": "https://github.com/dalba0/lexil/releases/download/packs-v1/spanish-en.db",
+      "sha256": "30D41FDE8FE2670B7870CADB2E5A25AC79B4E74F7D3220F1B8F6BC3E83473ABF",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "Spanish dictionary data adapted from English Wiktionary contributors, via kaikki.org. Licensed under CC-BY-SA 4.0."
+    },
+    {
+      "id": "french-en",
+      "name": "French",
+      "source": "fr",
+      "target": "en",
+      "version": "0.1.0",
+      "size_bytes": 134811648,
+      "entries": 0,
+      "download_url": "https://github.com/dalba0/lexil/releases/download/packs-v1/french-en.db",
+      "sha256": "2E2B37BA12170BBCEE6AFDA971710B57C222E4BF106A3E6EBDBE97FB98C97562",
+      "license": "CC-BY-SA-4.0",
+      "attribution": "French dictionary data adapted from English Wiktionary contributors, via kaikki.org. Licensed under CC-BY-SA 4.0."
+    }
+  ]
+}

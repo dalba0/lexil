@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { PackManager } from "@/components/PackManager";
 import {
   TAG_COLORS,
   type FontScale,
@@ -18,7 +19,6 @@ interface Props {
   fontScale: FontScale;
   setFontScale: (s: FontScale) => void;
   packId: string;
-  availablePacks: string[];
   onResetOnboarding: () => void;
 }
 
@@ -34,7 +34,6 @@ export function SettingsView({
   fontScale,
   setFontScale,
   packId,
-  availablePacks,
   onResetOnboarding,
 }: Props) {
   const [meta, setMeta] = useState<Record<string, string>>({});
@@ -113,42 +112,9 @@ export function SettingsView({
 
           <Section
             title="Dictionary packs"
-            subtitle="The languages installed on this device. Pack files ship with Lexil; updates arrive with each release."
+            subtitle="Add languages, remove ones you don't use. Packs live in your app data folder and work fully offline once installed."
           >
-            <div>
-              {availablePacks.map((id) => {
-                const isActive = id === packId;
-                const label = id === "spanish-en" ? "Spanish → English"
-                  : id === "french-en" ? "French → English"
-                  : id;
-                return (
-                  <div
-                    key={id}
-                    className="grid grid-cols-[1fr_auto] items-center border-b border-border py-3.5 last:border-b-0"
-                  >
-                    <div>
-                      <div className="font-serif text-[16px] leading-6 text-ink">
-                        {label}
-                        {isActive ? (
-                          <span className="ml-2 text-[11px] font-medium uppercase tracking-wider text-accent">
-                            Active
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-0.5 text-[12px] tracking-wider text-faint">
-                        {isActive && meta.entry_count
-                          ? `${Number(meta.entry_count).toLocaleString()} entries`
-                          : "Installed"}
-                        {isActive && meta.version ? ` · v${meta.version}` : ""}
-                        {isActive && meta.built_at
-                          ? ` · ${meta.built_at.slice(0, 10)}`
-                          : ""}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <PackManager />
           </Section>
 
           <Section
@@ -175,10 +141,10 @@ export function SettingsView({
           </Section>
 
           <Section title="Shortcuts" subtitle="Keyboard-first navigation.">
-            <ShortcutRow label="Focus search" keys="⌘ K" />
-            <ShortcutRow label="Back / forward" keys="⌘ [ · ⌘ ]" />
-            <ShortcutRow label="Star word" keys="⌘ S" />
-            <ShortcutRow label="Toggle theme" keys="⌘ D" />
+            <ShortcutRow label="Focus search" keys="Ctrl + K" />
+            <ShortcutRow label="Back / forward" keys="Ctrl + [   Ctrl + ]" />
+            <ShortcutRow label="Star word" keys="Ctrl + S" />
+            <ShortcutRow label="Toggle theme" keys="Ctrl + D" />
             <ShortcutRow label="Clear search" keys="Esc" />
           </Section>
 

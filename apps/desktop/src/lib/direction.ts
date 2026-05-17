@@ -20,9 +20,9 @@ export function pairToDirection(from: Lang, to: Lang): SearchDirection {
 }
 
 /**
- * Which bundled pack handles a given direction. English is the pivot:
- * we don't ship direct ES↔FR, so all directions route through an
- * en-paired pack.
+ * Which pack handles a given direction. English is the pivot: we don't
+ * ship direct ES↔FR (or any other non-EN pair), so every direction
+ * routes through an en-paired pack.
  */
 export function packIdForDirection(d: SearchDirection): string {
   switch (d) {
@@ -32,6 +32,12 @@ export function packIdForDirection(d: SearchDirection): string {
     case "fr-en":
     case "en-fr":
       return "french-en";
+    case "de-en":
+    case "en-de":
+      return "german-en";
+    case "ja-en":
+    case "en-ja":
+      return "japanese-en";
   }
 }
 
@@ -45,6 +51,8 @@ export const LANG_LABEL: Record<Lang, string> = {
   es: "Spanish",
   en: "English",
   fr: "French",
+  de: "German",
+  ja: "Japanese",
 };
 
 /** Default fallback when a direction can't be resolved. */

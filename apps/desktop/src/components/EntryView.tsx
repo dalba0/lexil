@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
+import { AddToListMenu } from "@/components/AddToListMenu";
 import { Conjugations } from "@/components/Conjugations";
 import { NotesSection } from "@/components/NotesSection";
 import { TagsRow } from "@/components/TagsRow";
@@ -46,20 +47,23 @@ export function EntryView({ entry, packId, matchedForm, attribution }: Props) {
             {entry.gender}
           </span>
         ) : null}
-        <button
-          onClick={toggleFav}
-          aria-label={favorite ? "Remove from favorites" : "Save to favorites"}
-          className={cn(
-            "ml-auto inline-flex h-8 w-8 items-center justify-center rounded-input text-muted transition-colors duration-fast hover:text-ink",
-            favorite && "text-accent hover:text-accent",
-          )}
-        >
-          <Star
-            size={20}
-            strokeWidth={1.5}
-            fill={favorite ? "currentColor" : "none"}
-          />
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          <AddToListMenu packId={packId} entry={entry} />
+          <button
+            onClick={toggleFav}
+            aria-label={favorite ? "Remove from favorites" : "Save to favorites"}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-input text-muted transition-colors duration-fast hover:text-ink",
+              favorite && "text-accent hover:text-accent",
+            )}
+          >
+            <Star
+              size={20}
+              strokeWidth={1.5}
+              fill={favorite ? "currentColor" : "none"}
+            />
+          </button>
+        </div>
       </header>
 
       {matchedForm && matchedForm !== entry.headword ? (
