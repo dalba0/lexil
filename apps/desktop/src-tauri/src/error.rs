@@ -8,6 +8,9 @@ pub enum AppError {
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("tauri: {0}")]
+    Tauri(#[from] tauri::Error),
+
     #[error("lock poisoned: {0}")]
     Lock(String),
 
